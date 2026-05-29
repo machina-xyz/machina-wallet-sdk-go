@@ -1,0 +1,55 @@
+syntax = "proto3";
+
+package machina.wallet.gateway.v1;
+
+option go_package = "github.com/machina-xyz/machina-wallet-sdk-go/examples/grpc-microservice/pb;pb";
+
+// WalletGateway is a thin gRPC facade over the MACHINA wallet management
+// service. It is intended to be deployed as a Kubernetes sidecar that other
+// microservices in the same Pod can call over loopback gRPC, avoiding HTTP
+// sign-on-every-request overhead in chatty workloads.
+service WalletGateway {
+  rpc GetWallet(GetWalletRequest) returns (Wallet);
+  rpc ListWallets(ListWalletsRequest) returns (WalletPage);
+  rpc SubmitTransaction(SubmitTransactionRequest) returns (SubmittedTransaction);
+}
+
+message Wallet {
+  string id = 1;
+  string owner_user_id = 2;
+  string chain = 3;
+  string address = 4;
+  string status = 5;
+  string custody_kind = 6;
+}
+
+message WalletPage {
+  repeated Wallet items = 1;
+  string next_cursor = 2;
+}
+
+message GetWalletRequest {
+  string wallet_id = 1;
+}
+
+message ListWalletsRequest {
+  string owner_user_id = 1;
+  string chain = 2;
+  string status = 3;
+  int32 limit = 4;
+  string cursor = 5;
+}
+
+message SubmitTransactionRequest {
+  string wallet_id = 1;
+  string to = 2;
+  string amount_atoms = 3;
+  string chain = 4;
+  string intent_kind = 5;
+}
+
+message SubmittedTransaction {
+  string tx_id = 1;
+  string chain_tx_hash = 2;
+  string status = 3;
+}
