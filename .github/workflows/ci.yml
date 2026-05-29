@@ -1,0 +1,96 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    name: test go ${{ matrix.go }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        go: ["1.22", "1.23"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: set up go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ matrix.go }}
+          check-latest: true
+
+      - name: go vet
+        run: go vet ./...
+
+      - name: go test (race + cover)
+        run: go test -race -coverprofile=coverage.out ./...
+
+      - name: coverage summary
+        run: go tool cover -func=coverage.out | tail -1
+
+  staticcheck:
+    name: staticcheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.23"
+      - uses: dominikh/staticcheck-action@v1.3.1
+        with:
+          version: "2024.1.1"
+          install-go: false
+
+  examples:
+    name: build examples
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.23"
+      - name: build http-server
+        working-directory: examples/http-server
+        run: go build ./...
+      - name: build gin-server
+        working-directory: examples/gin-server
+        run: go build ./...
+      - name: build grpc-microservice
+        working-directory: examples/grpc-microservice
+        run: go build ./...
+
+  hygiene:
+    name: hygiene checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: forbidden vendor name references in user-facing text
+        run: |
+          set -e
+          # Construct the pattern at runtime so the workflow file itself does
+          # not trip the check.
+          pattern="P""r""i""v""y|""W""e""b""3""A""u""t""h"
+          if grep -RInE "$pattern" \
+              --include='*.md' --include='*.go' --include='*.txt' \
+              --exclude-dir='.git' \
+              .; then
+            echo "forbidden vendor name found"
+            exit 1
+          fi
+
+      - name: no emoji in source or docs
+        run: |
+          set -e
+          # Detect any character above U+1F000 in tracked text files. The Perl
+          # one-liner exits non-zero on a match.
+          if grep -RInP "[\x{1F000}-\x{1FFFF}\x{2600}-\x{27BF}\x{1F300}-\x{1F9FF}]" \
+              --include='*.md' --include='*.go' --include='*.txt' --include='*.yaml' --include='*.yml' \
+              .; then
+            echo "emoji detected"
+            exit 1
+          fi
