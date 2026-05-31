@@ -21,6 +21,9 @@ type transport struct {
 	cfg    Config
 	signer Signer
 	http   *http.Client
+	// auth, when non-nil, attaches a second authorization artifact in
+	// addition to the app-level signature. Set via Client.WithAuthorization.
+	auth AuthorizationContext
 }
 
 // newTransport constructs a transport from a validated config.
@@ -79,6 +82,14 @@ func (t *transport) request(ctx context.Context, method, path string, query url.
 		req.Header.Set(HeaderTimestamp, strconv.FormatInt(time.Now().Unix(), 10))
 		req.Header.Set(HeaderSignature, sig)
 		req.Header.Set(HeaderMode, mode)
+
+		// Layer the optional per-user authorization artifact on top of
+		// the app-level signature when present.
+		if t.auth != nil {
+			if err := t.auth.apply(req, bodyBytes); err != nil {
+				return &Error{Code: ErrCodeAuth, Message: "authorization context: " + err.Error(), Cause: err}
+			}
+		}
 
 		resp, err := t.http.Do(req)
 		if err != nil {
