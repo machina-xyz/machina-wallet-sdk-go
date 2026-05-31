@@ -24,7 +24,7 @@ const (
 // IdentifierKind discriminates a linked identifier on a user.
 type IdentifierKind string
 
-// Supported linked identifier kinds. These mirror the Privy parity set.
+// Supported linked identifier kinds. These mirror the Wave 1 parity set.
 const (
 	IdentifierKindEmail           IdentifierKind = "email"
 	IdentifierKindPhone           IdentifierKind = "phone"
